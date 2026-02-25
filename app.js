@@ -455,37 +455,43 @@ function initItemLocator() {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlContent, 'text/html');
 
-                const locationHeadings = Array.from(doc.querySelectorAll('h2 .mw-headline, h3 .mw-headline, h4 .mw-headline')).filter(h =>
+                const allHeadings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+                const locationHeading = allHeadings.find(h =>
                     h.textContent.toLowerCase().includes('location') || h.textContent.toLowerCase() === 'spawn locations'
                 );
 
                 let extractedHtml = "";
 
-                if (locationHeadings.length > 0) {
-                    const headingEl = locationHeadings[0].parentElement;
-                    const headingLevel = parseInt(headingEl.tagName.substring(1));
+                if (locationHeading) {
+                    const headingLevel = parseInt(locationHeading.tagName.substring(1));
+                    let curr = locationHeading.nextElementSibling;
+                    const contentNodes = [];
 
-                    let node = headingEl.nextElementSibling;
+                    while (curr) {
+                        if (curr.tagName.match(/^H[1-6]$/)) {
+                            const thisLevel = parseInt(curr.tagName.substring(1));
+                            if (thisLevel <= headingLevel) break; // Reached next section
+                        }
+                        contentNodes.push(curr);
+                        curr = curr.nextElementSibling;
+                    }
+
+                    const tempDiv = document.createElement('div');
+                    contentNodes.forEach(n => tempDiv.appendChild(n.cloneNode(true)));
+
+                    const elements = tempDiv.querySelectorAll('ul, p');
                     let foundSpawns = false;
 
-                    while (node) {
-                        if (node.tagName.match(/^H[1-6]$/)) {
-                            const thisLevel = parseInt(node.tagName.substring(1));
-                            if (thisLevel <= headingLevel) break; // Reached a new section of equal or higher importance
+                    elements.forEach(el => {
+                        const cleanText = el.innerHTML.replace(/\[\d+\]/g, '');
+                        if (el.tagName === 'UL') {
+                            extractedHtml += `<ul>${cleanText}</ul>`;
+                            foundSpawns = true;
+                        } else if (el.tagName === 'P' && el.textContent.trim().length > 0) {
+                            extractedHtml += `<p>${cleanText}</p>`;
+                            foundSpawns = true;
                         }
-
-                        if (node.tagName === 'UL' || node.tagName === 'P') {
-                            const cleanText = node.innerHTML.replace(/\[\d+\]/g, '');
-                            if (node.tagName === 'UL') {
-                                extractedHtml += `<ul>${cleanText}</ul>`;
-                                foundSpawns = true;
-                            } else if (node.tagName === 'P' && node.textContent.trim().length > 0) {
-                                extractedHtml += `<p>${cleanText}</p>`;
-                                foundSpawns = true;
-                            }
-                        }
-                        node = node.nextElementSibling;
-                    }
+                    });
 
                     if (!foundSpawns) {
                         extractedHtml = "<p>No specific typed locations found. Map images might be available on Wiki.</p>";
