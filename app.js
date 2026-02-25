@@ -444,12 +444,16 @@ function initItemLocator() {
             resultsDiv.appendChild(card);
 
             try {
-                const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(item.wikiLink);
-                const proxyRes = await fetch(proxyUrl);
-                const proxyData = await proxyRes.json();
+                const pageTitle = item.wikiLink.split('/wiki/')[1];
+                const wikiApiUrl = `https://escapefromtarkov.fandom.com/api.php?action=parse&format=json&page=${pageTitle}&redirects=1&origin=*`;
+
+                const wikiRes = await fetch(wikiApiUrl);
+                const wikiData = await wikiRes.json();
+
+                const htmlContent = wikiData.parse ? wikiData.parse.text['*'] : '';
 
                 const parser = new DOMParser();
-                const doc = parser.parseFromString(proxyData.contents, 'text/html');
+                const doc = parser.parseFromString(htmlContent, 'text/html');
 
                 const locationHeadings = Array.from(doc.querySelectorAll('h2 .mw-headline, h3 .mw-headline, h4 .mw-headline')).filter(h =>
                     h.textContent.toLowerCase().includes('location') || h.textContent.toLowerCase() === 'spawn locations'
